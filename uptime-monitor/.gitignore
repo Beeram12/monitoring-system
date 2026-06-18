@@ -1,0 +1,13 @@
+node_modules/
+.next/
+*.log
+
+# Go
+backend/api
+
+# Env files (committed: .env.example only)
+.env
+
+# IDE
+.vscode/
+.idea/
