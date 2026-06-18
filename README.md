@@ -10,20 +10,25 @@ own interval, and the dashboard shows live up/down status and response times.
 ## Architecture
 
 ```
-backend/
-  cmd/api/            entrypoint: wiring, HTTP server, graceful shutdown
-  config/             env-based configuration
-  internal/domain/    core types + interfaces (MonitorRepository, CheckRepository, Pinger)
-  internal/service/   business logic, depends only on domain interfaces
-  internal/handler/   Gin HTTP handlers, request/response DTOs
-  internal/scheduler/ goroutine-per-monitor ticker loop that triggers pings
-  internal/repository/postgres/  sqlc-backed implementation of the domain repositories
-  internal/db/        embedded SQL migrations + sqlc-generated query code
-  pkg/httpclient/      Pinger implementation (plain net/http)
-frontend/
-  app/                Next.js App Router pages
-  components/         dashboard UI (monitor table, add-monitor dialog) + shadcn/ui primitives
-  lib/                typed API client
+backend
+├── cmd/api/main.go              entrypoint: wiring, HTTP server, graceful shutdown
+├── config/config.go             env-based configuration
+├── internal
+│   ├── domain/                  core types + interfaces (MonitorRepository, CheckRepository, Pinger)
+│   ├── service/                 business logic, depends only on domain interfaces
+│   ├── handler/                 Gin HTTP handlers, request/response DTOs
+│   ├── routes/routes.go         single place every HTTP route is registered
+│   ├── scheduler/scheduler.go   goroutine-per-monitor ticker loop that triggers pings
+│   ├── repository/postgres/     sqlc-backed implementation of the domain repositories
+│   └── db/                      embedded SQL migrations + sqlc-generated query code
+├── pkg/httpclient/pinger.go     Pinger implementation (plain net/http)
+└── Dockerfile
+
+frontend
+├── app/                Next.js App Router pages
+├── components/         dashboard UI (monitor table, add-monitor dialog) + shadcn/ui primitives
+├── lib/                 typed API client
+└── Dockerfile
 ```
 
 The backend is organized around interfaces in `internal/domain` (`MonitorRepository`,
@@ -109,14 +114,14 @@ Frontend: `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:8080`, set via `
 
 ## Deployment Sketch (Light)
 
-For a real deployment, each container would map to a managed cloud service: the Postgres
+- For a real deployment, each container would map to a managed cloud service: the Postgres
 container becomes a managed database (AWS RDS / GCP Cloud SQL), the backend becomes a container
 running on a serverless container platform (AWS ECS Fargate / GCP Cloud Run), and the frontend
 deploys to Vercel (or another Fargate/Cloud Run service behind a CDN). A load balancer would sit
 in front of the backend with HTTPS, and the frontend's `NEXT_PUBLIC_API_BASE_URL` would point at
 the backend's public URL instead of `localhost`.
 
-One thing to watch: the scheduler currently runs in-process inside the backend, so it's only
+- One thing to watch: the scheduler currently runs in-process inside the backend, so it's only
 safe to run a single backend replica — running multiple would mean every replica pings the same
 URLs and writes duplicate check rows. Scaling the API horizontally would require splitting the
 scheduler into its own single-instance service first.
